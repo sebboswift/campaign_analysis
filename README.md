@@ -5,11 +5,14 @@
 [![Poetry](https://img.shields.io/badge/dependencies-poetry-purple.svg)](https://python-poetry.org/)
 [![Spark](https://img.shields.io/badge/spark-3.5.5-orange)](https://spark.apache.org/)
 
-
 ---
+
+## Overview
+
 Analyze marketing campaign performance at scale using PySpark, with auto-generated test data and full Docker support.
 Identify inefficient campaigns based on cost-per-conversion and view results directly in your logs.
 ---
+
 ## 🚀 Features
 
 - ✅ Synthetic data generation
@@ -17,29 +20,37 @@ Identify inefficient campaigns based on cost-per-conversion and view results dir
 - ✅ Performance reporting via stdout & generated local CSVs
 - ✅ Dependency management via Poetry
 - ✅ Dockerized
+
 ---
 
 ## ⚙️ Setup & Run
 
 ### 1. Clone the repo
+
 ```bash
 git clone https://github.com/sebboswift/campaign_analysis.git
 cd campaign_analysis
 ```
 
 ### 2. Build & run with Docker
+
 ```bash
 docker-compose up --build
 ```
 
 This will (by default):
+
 - Generate 1.5M+ rows of campaign data (CSV ~100MB) in `gen_data/synthetic`
 - Run the PySpark job
-- Output a preview of inefficient campaigns (`cost_per_conversion_eur > 10`) directly in the logs 
+- Output a preview of inefficient campaigns (`cost_per_conversion_eur > 10`) directly in the logs
 - Yield a folder with a CSV containing all inefficient campaigns for further analysis in `gen_data/reporting`
+
 ---
+
 ## ✨ Customization
+
 You can adjust some of the business logic in `src/config.py`:
+
 ```python
 # Cost-Per-Conversion (CPC) inefficiency threshold (EUR per conversion)
 CPC_INEFFICIENCY_THRESHOLD_EUR = 10.0
@@ -50,7 +61,30 @@ MIN_ALERTING_INEFFICIENCY_PERCENTAGE = 2.5
 # Whether you want all campaign results or just the inefficient one's
 STORE_ONLY_INEFFICIENT_CAMPAIGNS = True
 ```
----
-## ⚖️ License
-MIT No Attribution – do whatever you want 🙌
 
+---
+
+## 🧑‍💻 Local development
+
+### 1. Install Poetry
+
+Poetry is the lovely we manage our dependencies with. You can install [Poetry](https://python-poetry.org/)
+via [pip](https://pypi.org/project/pip/) and then use it like this to install the dependencies:
+
+```bash
+poetry install
+```
+
+### 2. (Optional) Pre-commit
+
+This project supports pre-commit hooks. To set them up in your `.git/` directory, use:
+
+```bash
+poetry run pre-commit install
+```
+
+---
+
+## ⚖️ License
+
+MIT No Attribution – do whatever you want 🙌

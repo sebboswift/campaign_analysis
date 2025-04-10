@@ -2,7 +2,7 @@ services:
   mock-and-analyze:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
     volumes:
       - .:/app
     environment:

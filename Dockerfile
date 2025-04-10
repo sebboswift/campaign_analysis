@@ -21,7 +21,7 @@ COPY pyproject.toml poetry.lock* ./
 RUN poetry install --without dev
 
 # Copy project data
-COPY . .
+COPY docker .
 
 # Launch the analysis script via the virtual Poetry environment
 CMD ["poetry", "run", "python3", "scripts/run_analysis.py"]
