@@ -1,0 +1,16 @@
+services:
+  mock-and-analyze:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: >
+      bash -c "
+        echo '🧬 Creating synthetic data ...' &&
+        poetry run python3 scripts/generate_data.py &&
+        echo '🔎 Starting analysis ...' &&
+        poetry run python3 scripts/run_analysis.py
+      "

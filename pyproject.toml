@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "campaign-analysis"
+version = "0.1.0"
+description = "Analyze marketing campaign efficiency with PySpark"
+authors = ["Sebbo"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.09"
+pyspark = "^3.5.5"
+pandas = "^2.2.3"
+faker = "^37.1.0"
+numpy = "1.26.4"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
+pre-commit = "^4.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
