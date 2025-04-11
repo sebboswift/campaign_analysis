@@ -6,9 +6,6 @@
 [![Spark](https://img.shields.io/badge/spark-3.5.5-orange)](https://spark.apache.org/)
 
 ---
-
-## Overview
-
 Analyze marketing campaign performance at scale using PySpark, with auto-generated test data and full Docker support.
 Identify inefficient campaigns based on cost-per-conversion and view results directly in your logs.
 ---
@@ -32,7 +29,7 @@ git clone https://github.com/sebboswift/campaign_analysis.git
 cd campaign_analysis
 ```
 
-### 2. Build & run with Docker
+### 2. Build & run with Docker-Compose
 
 ```bash
 docker-compose up --build
@@ -43,7 +40,7 @@ This will (by default):
 - Generate 1.5M+ rows of campaign data (CSV ~100MB) in `gen_data/synthetic`
 - Run the PySpark job
 - Output a preview of inefficient campaigns (`cost_per_conversion_eur > 10`) directly in the logs
-- Yield a folder with a CSV containing all inefficient campaigns for further analysis in `gen_data/reporting`
+- Yield a folder containing a CSV with all inefficient campaigns for further analysis in `gen_data/reporting`
 
 ---
 
@@ -52,6 +49,9 @@ This will (by default):
 You can adjust some of the business logic in `src/config.py`:
 
 ```python
+# The amount of mock-data rows to synthesize
+NUM_SYNTHETIC_ROWS = 1_500_000
+
 # Cost-Per-Conversion (CPC) inefficiency threshold (EUR per conversion)
 CPC_INEFFICIENCY_THRESHOLD_EUR = 10.0
 
@@ -64,27 +64,53 @@ STORE_ONLY_INEFFICIENT_CAMPAIGNS = True
 
 ---
 
-## 🧑‍💻 Local development
+## 🧑‍💻 Local development (optional)
 
-### 1. Install Poetry
+### 1. Dependencies via Poetry
 
 Poetry is the lovely we manage our dependencies with. You can install [Poetry](https://python-poetry.org/)
-via [pip](https://pypi.org/project/pip/) and then use it like this to install the dependencies:
+via [pip](https://pypi.org/project/pip/):
+
+```bash
+pip install poetry
+```
+
+and then use it like this to install the dependencies:
 
 ```bash
 poetry install
 ```
 
-### 2. (Optional) Pre-commit
+### 2. OpenJDK for PySpark
 
-This project supports pre-commit hooks. To set them up in your `.git/` directory, use:
+The tests in this repo rely on PySpark, which depends on a compatible OpenJDK version on your machine. To install one via [Homebrew](https://brew.sh/) run:
+
+```bash
+brew install openjdk@11
+```
+
+### 3. Pre-commit
+
+This project supports [pre-commit hooks](https://pre-commit.com/). To set them up in your `.git/` directory, use:
 
 ```bash
 poetry run pre-commit install
 ```
-
 ---
-
+## 🧪 Testing (optional)
+You may have to adjust the PATH of Java in your session before running tests:
+```bash
+export JAVA_HOME="$($(which brew) --prefix openjdk@11)/libexec/openjdk.jdk/Contents/Home"
+```
+Then you can safely run the tests using PyTest:
+```bash
+poetry run python -m pytest src/tests
+```
+If you'd like to measure the test coverage of the `src/` module you instead run:
+```bash
+poetry run python -m pytest --cov=src src/tests
+```
+---
 ## ⚖️ License
 
 MIT No Attribution – do whatever you want 🙌

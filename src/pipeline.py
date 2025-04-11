@@ -15,6 +15,7 @@ class CampaignAnalysisPipeline:
     This class loads campaign data, verifies structure, performs aggregation and analysis,
     identifies inefficient campaigns, logs insights, and exports results to disk.
     """
+
     def __init__(self, spark: SparkSession, logging_instance=None):
         """
         Initializes the pipeline with a Spark session and optional logging instance.
@@ -30,6 +31,7 @@ class CampaignAnalysisPipeline:
             self.logger = logging_instance
         else:
             from .logger import logger
+
             self.logger = logger
 
     @staticmethod
@@ -59,7 +61,10 @@ class CampaignAnalysisPipeline:
             RuntimeError: If there is an error writing the file or creating the directory.
             TypeError: If the DataFrame is not properly structured.
         """
-        dir_out = self.config.REPORTING_DIRECTORY + datetime.now().strftime("%Y%m%d_%H%M%S")
+        dir_out = self.config.REPORTING_DIRECTORY + datetime.now().strftime(
+            "%Y%m%d_%H%M%S"
+        )
+        self.logger.info(f"💾 Writing result to a new directory in '{dir_out}'")
         try:
             os.makedirs(dir_out, exist_ok=True)
             df.coalesce(1).write.option("header", True).mode("overwrite").csv(dir_out)
@@ -68,7 +73,9 @@ class CampaignAnalysisPipeline:
         except AttributeError as e:
             raise TypeError(f"Reporting data is not in the expected format: {e}")
         except Exception as e:
-            raise RuntimeError(f"Unexpected error occurred while saving reporting data: {e}")
+            raise RuntimeError(
+                f"Unexpected error occurred while saving reporting data: {e}"
+            )
 
     def load_from_disk(self, path: str) -> Optional[DataFrame]:
         """
@@ -92,7 +99,9 @@ class CampaignAnalysisPipeline:
             self.logger.critical(f"Failed to read CSV from '{path}': {e}")
             return None
         except Exception as e:
-            self.logger.critical(f"[UNEXPECTED] Something went wrong while reading CSV: {e}")
+            self.logger.critical(
+                f"[UNEXPECTED] Something went wrong while reading CSV: {e}"
+            )
             traceback.print_exc()
             return None
 
@@ -107,47 +116,89 @@ class CampaignAnalysisPipeline:
             DataFrame: A new DataFrame containing aggregated metrics and cost per conversion.
         """
         self.logger.info("📊 Analyzing campaign performance ...")
-        self.verify_columns(df=df, required_cols={"campaign_id", "cost_eur", "conversions"})
-        result_df = df.groupBy("campaign_id").agg(
-            f.sum("cost_eur").alias("total_cost_eur"),
-            f.sum("conversions").alias("total_conversions")
-        ).withColumn(
-            "cost_per_conversion_eur",
-            f.when(f.col("total_conversions") > 0, f.col("total_cost_eur") / f.col("total_conversions")).otherwise(None)
+        self.verify_columns(
+            df=df, required_cols={"campaign_id", "cost_eur", "conversions"}
+        )
+        result_df = (
+            df.groupBy("campaign_id")
+            .agg(
+                f.sum("cost_eur").alias("total_cost_eur"),
+                f.sum("conversions").alias("total_conversions"),
+            )
+            .withColumn(
+                "cost_per_conversion_eur",
+                f.when(
+                    f.col("total_conversions") > 0,
+                    f.col("total_cost_eur") / f.col("total_conversions"),
+                ).otherwise(None),
+            )
         )
         return result_df
 
-    def perform_reporting(self, df: DataFrame) -> None:
+    def calculate_inefficiency_amount(
+        self, df: DataFrame, threshold: float
+    ) -> (int, int):
         """
-        Identifies inefficient campaigns, logs metrics, previews top offenders,
-        and saves the results to disk.
+        Analyzes campaign performance by aggregating total costs and conversions.
 
         Args:
-            df (DataFrame): The analyzed DataFrame containing performance metrics.
+            df (DataFrame): The input DataFrame including the cost_per_conversion_eur.
+            threshold (float): Defines the value that, if exceeded, will mark a campaign as inefficient.
+
+        Returns:
+            tuple(int, int): (The total count of rows in df | The count of rows in df that are above the threshold)
         """
-        threshold = self.config.CPC_INEFFICIENCY_THRESHOLD_EUR
-        percent_alert = self.config.MIN_ALERTING_INEFFICIENCY_PERCENTAGE
         self.verify_columns(df=df, required_cols={"cost_per_conversion_eur"})
-        # Determine which campaigns are inefficient
         agg_counts = df.select(
             f.count("*").alias("total"),
             f.sum(
                 f.when(f.col("cost_per_conversion_eur") > threshold, 1).otherwise(0)
-            ).alias("inefficient")
+            ).alias("inefficient"),
         ).first()
-        count_total = agg_counts['total']
-        count_inefficient = agg_counts['inefficient']
-        percent_inefficient = (count_inefficient / count_total) * 100 if count_total else 0.0
-        df_inefficient = df.filter(df.cost_per_conversion_eur > threshold)
-        self.logger.info(f"📢 Showing campaigns with cost_per_conversion_eur > {threshold} EUR")
-        # We log the 10 most inefficient campaigns using top-K sort
-        df_inefficient.orderBy(f.col("cost_per_conversion_eur").desc()).limit(10).show(truncate=False)
-        self.logger.info(
-            f"👀️ {count_inefficient}/{count_total} campaigns are inefficient ({percent_inefficient:.2f}%)")
-        if percent_inefficient < percent_alert:
-            self.logger.info(f"👍 Inefficiency percentage is tolerable (below {percent_alert}%)")
-        else:
-            # Here we could perform an escalation, like sending an e-mail, or lighting the beacons to call for help
-            self.logger.info(f"👎 Oh no! The inefficiency percentage exceeds the set ceiling of {percent_alert}%")
-        self.logger.info(f"💾 Writing result to a new directory in {self.config.REPORTING_DIRECTORY}")
-        self.save_pyspark_dataframe(df=df_inefficient if self.config.STORE_ONLY_INEFFICIENT_CAMPAIGNS else df)
+        count_total = agg_counts["total"]
+        count_inefficient = agg_counts["inefficient"]
+        return count_total, count_inefficient
+
+    def perform_reporting(self, df: DataFrame, verbose: bool = True) -> DataFrame:
+        """
+        Identifies inefficient campaigns, logs metrics, previews top offenders.
+
+        Args:
+            df (DataFrame): The analyzed DataFrame containing performance metrics.
+            verbose (bool): Whether to log the process and results of this method.
+
+        Returns:
+            DataFrame: A new DataFrame containing only campaigns that are regarded as inefficient.
+        """
+        threshold_cpc = self.config.CPC_INEFFICIENCY_THRESHOLD_EUR
+        self.verify_columns(df=df, required_cols={"cost_per_conversion_eur"})
+        df_inefficient = df.filter(df.cost_per_conversion_eur > threshold_cpc)
+        if verbose:
+            percent_alert = self.config.MIN_ALERTING_INEFFICIENCY_PERCENTAGE
+            # Determine which campaigns are inefficient
+            count_total, count_inefficient = self.calculate_inefficiency_amount(
+                df=df, threshold=threshold_cpc
+            )
+            percent_inefficient = (
+                (count_inefficient / count_total) * 100 if count_total else 0.0
+            )
+            self.logger.info(
+                f"📢 Showing campaigns with cost_per_conversion_eur > {threshold_cpc} EUR"
+            )
+            # We log the 10 most inefficient campaigns using top-K sort
+            df_inefficient.orderBy(f.col("cost_per_conversion_eur").desc()).limit(
+                10
+            ).show(truncate=False)
+            self.logger.info(
+                f"👀️ {count_inefficient}/{count_total} campaigns are inefficient ({percent_inefficient:.2f}%)"
+            )
+            if percent_inefficient < percent_alert:
+                self.logger.info(
+                    f"👍 Inefficiency percentage is tolerable (below {percent_alert}%)"
+                )
+            else:
+                # Here we could perform an escalation, like sending an e-mail, or lighting the beacons to call for help
+                self.logger.info(
+                    f"👎 Oh no! The inefficiency percentage exceeds the set ceiling of {percent_alert}%"
+                )
+        return df_inefficient
