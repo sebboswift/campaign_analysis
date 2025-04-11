@@ -67,8 +67,9 @@ STORE_ONLY_INEFFICIENT_CAMPAIGNS = True
 ## 🧑‍💻 Local development (optional)
 
 ### 1. Dependencies via Poetry
+**Make sure to install Poetry and the dependencies before proceeding with either this setup or the tests.**
 
-Poetry is the lovely we manage our dependencies with. You can install [Poetry](https://python-poetry.org/)
+Poetry is the lovely way we manage our dependencies with. You can install [Poetry](https://python-poetry.org/)
 via [pip](https://pypi.org/project/pip/):
 
 ```bash
@@ -80,7 +81,6 @@ and then use it like this to install the dependencies:
 ```bash
 poetry install
 ```
-
 ### 2. OpenJDK for PySpark
 
 The tests in this repo rely on PySpark, which depends on a compatible OpenJDK version on your machine. To install one via [Homebrew](https://brew.sh/) run:
